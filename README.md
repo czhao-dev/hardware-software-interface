@@ -48,3 +48,7 @@ Worked in a four-member team where responsibilities included:
 - Real-time control algorithm development
 - System debugging and tuning
 - Testing and iterative performance refinement
+
+## License
+
+This project is released for academic and research purposes. Please credit the source if used in publications or derivative works.
