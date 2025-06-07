@@ -2,7 +2,7 @@
 
 This project simulates a smart embedded system using the FreeRTOS real-time operating system. It models a multi-tasking environment with different task types, communication mechanisms, and system monitoring features. The goal is to showcase how FreeRTOS tasks can interact using queues and semaphores, reflecting principles of concurrent programming and real-time system design.
 
-This simulation does not require physical hardware and runs entirely on a POSIX-compliant system using the FreeRTOS POSIX port. It is designed for educational use, interview preparation, and showcasing embedded systems development skills on GitHub.
+This simulation does not require physical hardware and runs entirely on a POSIX-compliant system using the FreeRTOS POSIX port. 
 
 ## Features
 
