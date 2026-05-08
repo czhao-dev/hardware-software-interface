@@ -14,6 +14,7 @@ firmware/
     natcar_v1.5.ino
     natcar_v1.6.ino
     natcar_v1.8.ino
+    natcar_v1.9.ino
 ```
 
 The archive shows the project moving from broader sensor-fusion experiments toward a leaner camera-based controller.
@@ -57,7 +58,8 @@ The final sketch uses:
 - Steering clamp from `20` to `70`
 - PD steering with `STEERING_KP = 0.6` and `STEERING_KD = 0.6`
 - Speed reduction proportional to absolute camera error
-- Minimum PWM of `30` when the line is lost
+- Minimum PWM of `30` when the line is briefly lost
+- Motor fail-safe stop after `25` consecutive lost-line frames
 
 ## How to Read the Archive
 
