@@ -22,11 +22,14 @@ const byte PIN_PWM_D = 10;
 const int PIXEL_COUNT = 128;
 const int CAMERA_CENTER_PIXEL = 58;
 const int LINE_BRIGHTNESS_THRESHOLD = 200;
+const int MIN_EDGE_STRENGTH = 25;
 const int LOOP_DELAY_MS = 10;
 
 // Speed tuning
 const int TOP_SPEED_PWM = 100;
 const int MIN_SPEED_PWM = 30;
+const int STOP_SPEED_PWM = 0;
+const int MAX_LOST_LINE_FRAMES = 25;
 const float TURN_SLOWDOWN_GAIN = 1.8;
 const float SPEED_KP = 1.0;
 const float SPEED_KD = 0.0;
@@ -48,6 +51,16 @@ int previousLinePosition = 0;
 float steeringAngle = SERVO_CENTER;
 float leftMotorPwm = 0;
 float rightMotorPwm = 0;
+int lostLineFrames = 0;
+
+void readCamera();
+void startCameraFrame();
+LineDetection detectLine();
+void updateSteering(const LineDetection &line);
+void updateMotorSpeed(const LineDetection &line);
+float rampDown(float pwm, float minimumPwm);
+void writeMotorOutputs();
+int clampPwm(float value);
 
 void setup() {
   pinMode(PIN_PWM_A, OUTPUT);
@@ -58,11 +71,14 @@ void setup() {
   pinMode(PIN_CAMERA_CLK, OUTPUT);
   pinMode(PIN_CAMERA_SI, OUTPUT);
   pinMode(PIN_CAMERA_AO, INPUT);
+  digitalWrite(PIN_CAMERA_CLK, LOW);
+  digitalWrite(PIN_CAMERA_SI, LOW);
 
   pinMode(PIN_LEFT_INDUCTOR, INPUT);
   pinMode(PIN_CENTER_INDUCTOR, INPUT);
   pinMode(PIN_RIGHT_INDUCTOR, INPUT);
 
+  writeMotorOutputs();
   steeringServo.attach(PIN_SERVO);
   steeringServo.write(SERVO_CENTER);
 }
@@ -116,7 +132,9 @@ LineDetection detectLine() {
   }
 
   const int midpoint = (headIndex + tailIndex) / 2;
-  const bool detected = pixels[midpoint] > LINE_BRIGHTNESS_THRESHOLD;
+  const bool detected = pixels[midpoint] > LINE_BRIGHTNESS_THRESHOLD
+    && maxRisingEdge >= MIN_EDGE_STRENGTH
+    && abs(maxFallingEdge) >= MIN_EDGE_STRENGTH;
 
   LineDetection result;
   result.detected = detected;
@@ -152,10 +170,22 @@ void updateMotorSpeed(const LineDetection &line) {
   const float previousRightPwm = rightMotorPwm;
 
   if (!line.detected) {
-    leftMotorPwm = rampDown(leftMotorPwm);
-    rightMotorPwm = rampDown(rightMotorPwm);
+    if (lostLineFrames < MAX_LOST_LINE_FRAMES) {
+      lostLineFrames++;
+    }
+
+    if (lostLineFrames >= MAX_LOST_LINE_FRAMES) {
+      leftMotorPwm = STOP_SPEED_PWM;
+      rightMotorPwm = STOP_SPEED_PWM;
+      return;
+    }
+
+    leftMotorPwm = rampDown(leftMotorPwm, MIN_SPEED_PWM);
+    rightMotorPwm = rampDown(rightMotorPwm, MIN_SPEED_PWM);
     return;
   }
+
+  lostLineFrames = 0;
 
   const int absLineError = abs(line.position);
   float targetPwm = TOP_SPEED_PWM - absLineError * TURN_SLOWDOWN_GAIN;
@@ -168,12 +198,12 @@ void updateMotorSpeed(const LineDetection &line) {
   rightMotorPwm = max(rightMotorPwm, (float)MIN_SPEED_PWM);
 }
 
-float rampDown(float pwm) {
-  if (pwm > MIN_SPEED_PWM) {
+float rampDown(float pwm, float minimumPwm) {
+  if (pwm > minimumPwm) {
     return pwm - 1;
   }
 
-  return MIN_SPEED_PWM;
+  return minimumPwm;
 }
 
 void writeMotorOutputs() {
