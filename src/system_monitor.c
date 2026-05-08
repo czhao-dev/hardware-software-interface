@@ -6,15 +6,16 @@
  *************************************************************************************/
 
 #include "system_monitor.h"
+#include "shared_defs.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
 #include "timers.h"
 #include <stdio.h>
 
-extern SemaphoreHandle_t printMutex;
-
 void vSystemMonitorTask(void *pvParameters) {
+    (void) pvParameters;
+
     char statsBuffer[512];
 
     while (1) {
@@ -22,6 +23,7 @@ void vSystemMonitorTask(void *pvParameters) {
         vTaskDelay(pdMS_TO_TICKS(15000));
 
         // Get system stats
+        statsBuffer[0] = '\0';
         vTaskGetRunTimeStats(statsBuffer);
 
         xSemaphoreTake(printMutex, portMAX_DELAY);
