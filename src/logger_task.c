@@ -17,20 +17,27 @@
 #include <stdlib.h>
 #include <time.h>
 
-extern SemaphoreHandle_t printMutex;
-extern QueueHandle_t loggerQueue;
-
 void vLoggerTask(void *pvParameters) {
+    (void) pvParameters;
+
     char *logMsg;
 
     while (1) {
         // Wait for a message from any task
         if (xQueueReceive(loggerQueue, &logMsg, portMAX_DELAY) == pdTRUE) {
+            if (logMsg == NULL) {
+                continue;
+            }
+
             // Print the log message with timestamp
             time_t now = time(NULL);
             struct tm *t = localtime(&now);
             xSemaphoreTake(printMutex, portMAX_DELAY);
-            printf("[LOG %02d:%02d:%02d] %s\n", t->tm_hour, t->tm_min, t->tm_sec, logMsg);
+            if (t != NULL) {
+                printf("[LOG %02d:%02d:%02d] %s\n", t->tm_hour, t->tm_min, t->tm_sec, logMsg);
+            } else {
+                printf("[LOG] %s\n", logMsg);
+            }
             xSemaphoreGive(printMutex);
 
             // Free the allocated log message
