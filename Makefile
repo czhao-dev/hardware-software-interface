@@ -1,44 +1,60 @@
-# Makefile for FreeRTOS Smart Task Scheduler (Simulation)
+# FreeRTOS Smart Task Scheduler
 
-# Compiler and flags
-CC = gcc
-CFLAGS = -I. -I./FreeRTOS/include -I./FreeRTOS/portable/GCC/Posix -Wall -Wextra -D__linux__ -pthread
-LDFLAGS = -pthread
+CC ?= gcc
+TARGET := freertos_sim
 
-# Source files
-SRCS = \
-    main.c \
-    led_task.c \
-    temp_task.c \
-    motion_task.c \
-    logger_task.c \
-    command_task.c \
-    system_monitor.c \
-    utils.c \
-    FreeRTOS/portable/GCC/Posix/port.c \
-    FreeRTOS/portable/MemMang/heap_4.c \
-    FreeRTOS/croutine.c \
-    FreeRTOS/event_groups.c \
-    FreeRTOS/list.c \
-    FreeRTOS/queue.c \
-    FreeRTOS/tasks.c \
-    FreeRTOS/timers.c
+SRC_DIR := src
+INC_DIR := include
+BUILD_DIR := build
 
-# Object files
-OBJS = $(SRCS:.c=.o)
+FREERTOS_DIR ?= FreeRTOS
+FREERTOS_KERNEL_DIR ?= $(firstword $(wildcard $(FREERTOS_DIR)/Source) $(FREERTOS_DIR))
+FREERTOS_PORT_DIR ?= $(firstword \
+	$(wildcard $(FREERTOS_KERNEL_DIR)/portable/ThirdParty/GCC/Posix) \
+	$(wildcard $(FREERTOS_KERNEL_DIR)/portable/GCC/Posix) \
+	$(FREERTOS_KERNEL_DIR)/portable/ThirdParty/GCC/Posix)
 
-# Output
-TARGET = freertos_sim
+CFLAGS ?= -Wall -Wextra -Wpedantic -pthread
+CPPFLAGS := -I$(INC_DIR) -I$(FREERTOS_KERNEL_DIR)/include -I$(FREERTOS_PORT_DIR) -D__linux__
+LDFLAGS ?= -pthread
 
-all: $(TARGET)
+APP_SRCS := $(wildcard $(SRC_DIR)/*.c)
+FREERTOS_SRCS := \
+	$(FREERTOS_PORT_DIR)/port.c \
+	$(wildcard $(FREERTOS_PORT_DIR)/utils/wait_for_event.c) \
+	$(FREERTOS_KERNEL_DIR)/portable/MemMang/heap_4.c \
+	$(FREERTOS_KERNEL_DIR)/croutine.c \
+	$(FREERTOS_KERNEL_DIR)/event_groups.c \
+	$(FREERTOS_KERNEL_DIR)/list.c \
+	$(FREERTOS_KERNEL_DIR)/queue.c \
+	$(FREERTOS_KERNEL_DIR)/tasks.c \
+	$(FREERTOS_KERNEL_DIR)/timers.c
+
+SRCS := $(APP_SRCS) $(FREERTOS_SRCS)
+OBJS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(SRCS))
+
+.PHONY: all clean check-deps
+
+all: check-deps $(TARGET)
+
+check-deps:
+	@if [ ! -d "$(FREERTOS_DIR)" ]; then \
+		printf "Missing FreeRTOS kernel sources at %s\n" "$(FREERTOS_DIR)"; \
+		printf "See docs/SETUP.md for dependency setup instructions.\n"; \
+		exit 1; \
+	fi
+	@if [ ! -f "$(FREERTOS_PORT_DIR)/port.c" ]; then \
+		printf "Missing POSIX port at %s\n" "$(FREERTOS_PORT_DIR)"; \
+		printf "Set FREERTOS_PORT_DIR if your FreeRTOS checkout uses a different POSIX port path.\n"; \
+		exit 1; \
+	fi
 
 $(TARGET): $(OBJS)
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)
 
-%.o: %.c
-	$(CC) -c $< -o $@ $(CFLAGS)
+$(BUILD_DIR)/%.o: %.c
+	@mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJS) $(TARGET)
-
-.PHONY: all clean
+	rm -rf $(BUILD_DIR) $(TARGET)
