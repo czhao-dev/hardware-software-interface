@@ -1,54 +1,128 @@
-# IEEE NATCAR Autonomous Vehicle Project
+# IEEE NATCAR Autonomous Race Car
 
-An autonomous electric race car developed for the **Institute of Electrical and Electronic Engineers (IEEE) – NATCAR Competition**. Built in collaboration with a four-person team, this project showcases a complete embedded systems design cycle—from hardware integration to algorithm development—focusing on real-time navigation using sensor fusion and PID control.
+An autonomous electric race car built for the IEEE NATCAR competition. The project combines embedded firmware, custom PCB design, optical sensing, inductive sensing, motor control, and real-time steering control on a modified RC car platform.
 
-## Project Overview
+The vehicle follows a track using a 128-pixel line-scan camera and explored sensor fusion with three inductive pickups. The final firmware reads the camera, estimates the track line position, applies PD-style steering control, and adjusts motor PWM based on how aggressively the car needs to turn.
 
-The IEEE North American Technical Conference on Autonomous Racecars (NATCAR) challenges teams to develop high-speed, autonomous vehicles capable of navigating complex race tracks. Our entry leveraged a combination of a line-scan camera and inductive sensors to enable accurate path following and lane detection.
+## Project Highlights
 
-### Key Features:
-- Real-time line-tracing algorithm using **Arduino**
-- **PID control** for smooth and precise steering
-- **Sensor fusion** integrating optical and inductive data
-- Stable embedded system design through intensive **debugging and optimization**
-- Successfully competed in the **IEEE NATCAR Competition**
+- Built and tuned an autonomous race car for IEEE NATCAR
+- Implemented real-time line following in Arduino-style C/C++
+- Used a TSL1401-style 128-pixel line-scan camera for track detection
+- Designed around a custom Teensy 3.1-compatible controller PCB
+- Integrated left, center, and right inductive sensors through analog front-end circuitry
+- Controlled steering with a servo and propulsion with dual PWM motor outputs
+- Iterated through multiple firmware versions during testing and tuning
 
-## Technologies Used
+## How It Works
 
-- **Arduino (C/C++)**
-- **PID Control Theory**
-- **Line-scan Camera**
-- **Inductive Sensors**
-- **Embedded Systems Debugging**
+```mermaid
+flowchart LR
+    Camera["Line-scan camera"] --> Firmware["Teensy / Arduino firmware"]
+    Inductors["Inductive sensors"] --> AFE["Analog front end"]
+    AFE --> Firmware
+    Firmware --> Steering["Servo steering"]
+    Firmware --> Motors["PWM motor drive"]
+    Battery["Battery"] --> Power["5V / 3.3V regulation"]
+    Power --> Firmware
+    Power --> AFE
+```
+
+At runtime, the controller:
+
+1. Clocks the line-scan camera and reads 128 analog pixel values.
+2. Finds the strongest rising and falling edges in the camera data.
+3. Estimates the line midpoint relative to a calibrated camera center.
+4. Converts the line offset into a steering angle.
+5. Reduces speed during sharper turns.
+6. Writes servo and motor PWM commands.
+
+More detail is available in [System Overview](docs/system-overview.md) and [Control Algorithm](docs/control-algorithm.md).
+
+## Repository Structure
+
+```text
+NATCAR/
+  README.md
+  firmware/
+    natcar_final/
+      natcar_final.ino
+    archive/
+      natcar_v1.1.ino
+      natcar_v1.2.ino
+      natcar_v1.3.ino
+      natcar_v1.4.ino
+      natcar_v1.5.ino
+      natcar_v1.6.ino
+      natcar_v1.8.ino
+      natcar_v1.9.ino
+  hardware/
+    Natcar 1.01.sch
+    Natcar 1.01.brd
+  docs/
+    system-overview.md
+    control-algorithm.md
+    hardware.md
+    calibration.md
+    firmware-history.md
+  data/
+    inductor_measurement.xlsx
+    inductor scaling.xlsx
+  references/
+    28317-TSL1401-DB-Manual.pdf
+  images/
+    control-loop.png
+    hardware-pin-map.png
+    system-architecture.png
+```
+
+## Documentation
+
+- [System Overview](docs/system-overview.md): full vehicle architecture and subsystem summary
+- [Control Algorithm](docs/control-algorithm.md): camera processing, steering control, speed control, and earlier sensor-fusion logic
+- [Hardware](docs/hardware.md): PCB, major components, power, motor drive, and pin mapping
+- [Calibration](docs/calibration.md): inductor measurement and scaling notes
+- [Firmware History](docs/firmware-history.md): what changed across the archived firmware versions
 
 ## Hardware Summary
 
-- **Chassis:** Custom-modified RC car
-- **Microcontroller:** Arduino-compatible board
-- **Sensors:**
-  - Line camera for lane detection
-  - Inductive sensors for track boundary detection
-- **Power System:** Onboard rechargeable battery pack
-- **Actuators:** Motor and servo for propulsion and steering
+| Area | Description |
+| --- | --- |
+| Chassis | Custom-modified RC car platform |
+| Controller | Teensy 3.1-compatible Arduino-style firmware target |
+| Optical sensor | 128-pixel line-scan camera |
+| Inductive sensors | Left, center, and right pickups for guide detection |
+| Actuators | Steering servo and left/right motor outputs |
+| PCB | Custom Eagle schematic and board files |
+| Power | Battery input with onboard 5V and 3.3V regulation |
 
-## Algorithm Highlights
+## Firmware Summary
 
-- Real-time image processing of line-scan data to detect track center
-- Dynamic PID parameter tuning for stable high-speed tracking
-- Fusion of inductive sensor input to handle complex track segments (e.g., intersections, curves)
+The final sketch lives at:
 
-## Competition Results
+```text
+firmware/natcar_final/natcar_final.ino
+```
 
-Demonstrated consistent, autonomous navigation of the competition track. The system achieved stable performance with robust track detection and fast lap times during test runs.
+Key control constants in the final firmware:
 
-## Team Collaboration
+| Parameter | Value | Purpose |
+| --- | ---: | --- |
+| `TOP_SPEED_PWM` | `100` | Base motor PWM target |
+| `STEERING_KP` | `0.6` | Steering proportional gain |
+| `STEERING_KD` | `0.6` | Steering derivative gain |
+| `CAMERA_CENTER_PIXEL` | `58` | Calibrated camera center |
+| `SERVO_CENTER` | `45` | Servo center |
+| `SERVO_RANGE` | `25` | Servo command clamp |
 
-Worked in a four-member team where responsibilities included:
-- Hardware wiring and sensor integration
-- Real-time control algorithm development
-- System debugging and tuning
-- Testing and iterative performance refinement
+Archived sketches are kept in `firmware/archive/` to show the development process, including earlier camera-plus-inductor fusion attempts.
+
+## Development Notes
+
+This project was built collaboratively by a four-person team. Work included hardware wiring, PCB design, sensor integration, real-time control firmware, serial debugging, calibration, and track testing.
+
+The repository is organized as a showcase of the complete embedded design cycle rather than a packaged library. The hardware files require Eagle-compatible tooling, and the final firmware is intended for an Arduino/Teensyduino-style environment with the Servo library available.
 
 ## License
 
-This project is released for academic and research purposes. Please credit the source if used in publications or derivative works.
+This project is licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
