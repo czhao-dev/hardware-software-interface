@@ -1,51 +1,58 @@
-# FreeRTOS Smart Task Scheduler (Simulation)
+# FreeRTOS Smart Task Scheduler
 
-This project simulates a smart embedded system using the FreeRTOS real-time operating system. It models a multi-tasking environment with different task types, communication mechanisms, and system monitoring features. The goal is to showcase how FreeRTOS tasks can interact using queues and semaphores, reflecting principles of concurrent programming and real-time system design.
+A POSIX-based FreeRTOS simulation that models a small smart embedded system with multiple cooperating tasks. The project demonstrates task scheduling, queue-based message passing, mutex-protected console output, centralized logging, and lightweight runtime monitoring.
 
-This simulation does not require physical hardware and runs entirely on a POSIX-compliant system using the FreeRTOS POSIX port. 
+This repo is structured as a portfolio-friendly embedded systems sample: application code is separated from headers, the FreeRTOS kernel is treated as an external dependency, and the docs explain how the simulated tasks interact.
 
-## Features
+## Highlights
 
-- **LED Task**: Toggles virtual LEDs based on command messages.
-- **Temperature Task**: Simulates temperature readings and triggers logs if a threshold is exceeded.
-- **Motion Task**: Simulates motion detection and logs status periodically.
-- **Logger Task**: Centralized logging system that prints timestamped messages from all tasks.
-- **Command Task**: Simulates user commands to control LED and temperature behavior.
-- **System Monitor**: Periodically reports heap usage and task runtime stats.
+- **RTOS task orchestration**: LED, temperature, motion, command, logger, and system monitor tasks run concurrently.
+- **Inter-task communication**: FreeRTOS queues carry typed LED commands, temperature threshold updates, and heap-owned log messages.
+- **Synchronization**: A shared mutex prevents overlapping console output from multiple tasks.
+- **Safer simulation helpers**: Centralized log formatting and task-local pseudo-random generators keep task behavior predictable.
+- **System visibility**: The monitor task reports runtime stats and heap availability.
+- **Desktop simulation**: Designed to run without physical hardware using the FreeRTOS POSIX port.
 
-## File Structure
+## Repository Layout
 
-```
+```text
 .
-├── main.c
-├── led_task.c/h
-├── temp_task.c/h
-├── motion_task.c/h
-├── logger_task.c/h
-├── command_task.c/h
-├── system_monitor.c/h
-├── utils.c/h
-├── shared_defs.h
-├── FreeRTOS/        # FreeRTOS kernel and ported files (not included)
-└── Makefile
+├── include/                 # Project headers and FreeRTOSConfig.h
+├── src/                     # Application task implementations
+├── docs/                    # Architecture and setup notes
+├── Makefile                 # POSIX simulation build
+├── LICENSE
+└── README.md
 ```
 
-## Requirements
+## Task Overview
 
-- GCC (Linux/Mac) with POSIX thread support
-- FreeRTOS (ported for POSIX simulation)
+| Task | Role |
+| --- | --- |
+| LED Task | Receives LED commands and simulates on/off/blink-period behavior. |
+| Temperature Task | Generates simulated readings and logs warnings above a configurable threshold. |
+| Motion Task | Generates randomized motion events. |
+| Command Task | Simulates operator commands by publishing queue messages. |
+| Logger Task | Prints timestamped messages from every task and frees log allocations. |
+| System Monitor | Prints runtime stats and available heap periodically. |
 
-## Build & Run
+## Build
+
+The FreeRTOS kernel sources are intentionally not vendored in this repo. Place or symlink a compatible FreeRTOS checkout at `./FreeRTOS`, then build:
 
 ```bash
-make            # Build the project
-./freertos_sim  # Run the simulation
+make
+./freertos_sim
 ```
 
-To clean build artifacts:
+If your kernel or POSIX port lives elsewhere, override the paths:
+
 ```bash
-make clean
+make FREERTOS_DIR=/path/to/FreeRTOS FREERTOS_PORT_DIR=/path/to/FreeRTOS/portable/ThirdParty/GCC/Posix
 ```
+
+For dependency setup details, see [docs/SETUP.md](docs/SETUP.md). For the task communication model, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## License
-Apache License 2.0 — free to use and modify.
+
+Apache License 2.0. See [LICENSE](LICENSE).
