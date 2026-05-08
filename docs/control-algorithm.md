@@ -22,6 +22,9 @@ Important tuned constants:
 | `SERVO_CENTER` | `45` | Servo center position |
 | `SERVO_RANGE` | `25` | Steering clamp around center |
 | `CAMERA_CENTER_PIXEL` | `58` | Calibrated camera midpoint |
+| `LINE_BRIGHTNESS_THRESHOLD` | `200` | Minimum midpoint brightness for a valid line |
+| `MIN_EDGE_STRENGTH` | `25` | Minimum edge contrast for a valid line |
+| `MAX_LOST_LINE_FRAMES` | `25` | Frames before fail-safe motor stop |
 
 ## Camera Reading
 
@@ -43,7 +46,7 @@ The `detectLine()` function estimates the center of the bright line by finding t
 2. Store the index of the strongest rising edge.
 3. Store the index of the strongest falling edge.
 4. Average those two edge positions to estimate the line midpoint.
-5. Accept the reading if the midpoint pixel is brighter than the threshold.
+5. Accept the reading only if the midpoint pixel is bright enough and both edges have enough contrast.
 6. Convert the midpoint to an error with `currentLinePosition = midpoint - CAMERA_CENTER_PIXEL`.
 
 This is a compact edge-based detector. It avoids needing to threshold the entire image and works well when the line appears as a bright band against a darker background.
@@ -80,7 +83,7 @@ The final sketch drives both sides with the same PWM value:
 rightMotorPwm = targetPwm;
 ```
 
-When the camera loses the line, the firmware ramps both sides down toward a minimum PWM of `30` instead of abruptly stopping.
+When the camera loses the line, the firmware ramps both sides down toward a minimum PWM of `30`. If the line stays lost for `25` frames, the fail-safe sets both motor outputs to `0`.
 
 ## Control Flow
 
