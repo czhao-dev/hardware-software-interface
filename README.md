@@ -112,8 +112,11 @@ Key control constants in the final firmware:
 | `STEERING_KP` | `0.6` | Steering proportional gain |
 | `STEERING_KD` | `0.6` | Steering derivative gain |
 | `CAMERA_CENTER_PIXEL` | `58` | Calibrated camera center |
+| `LINE_BRIGHTNESS_THRESHOLD` | `200` | Minimum midpoint brightness for a valid line |
+| `MIN_EDGE_STRENGTH` | `25` | Minimum rising/falling edge contrast for a valid line |
 | `SERVO_CENTER` | `45` | Servo center |
 | `SERVO_RANGE` | `25` | Servo command clamp |
+| `MAX_LOST_LINE_FRAMES` | `25` | Frames before fail-safe motor stop |
 
 Archived sketches are kept in `firmware/archive/` to show the development process, including earlier camera-plus-inductor fusion attempts.
 
