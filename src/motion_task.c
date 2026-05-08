@@ -8,25 +8,26 @@
 
 #include "motion_task.h"
 #include "shared_defs.h"
+#include "utils.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 #include "semphr.h"
 #include <stdio.h>
-#include <stdlib.h>
+#include <stdint.h>
 #include <time.h>
 
-extern SemaphoreHandle_t printMutex;
-extern QueueHandle_t loggerQueue;
+#define MOTION_MIN_DELAY_MS 3000
+#define MOTION_MAX_DELAY_MS 10000
 
 void vMotionTask(void *pvParameters) {
-    srand((unsigned) time(NULL) + 1); // Ensure different seed than temp task
+    (void) pvParameters;
 
-    char *logMsg;
+    uint32_t rngState = (uint32_t) time(NULL) ^ 0x4D07104EU;
 
     while (1) {
         // Simulate random delay between 3 to 10 seconds
-        int delay = 3000 + rand() % 7000;
+        int delay = random_range(&rngState, MOTION_MIN_DELAY_MS, MOTION_MAX_DELAY_MS);
         vTaskDelay(pdMS_TO_TICKS(delay));
 
         // Simulate motion detection event
@@ -35,7 +36,6 @@ void vMotionTask(void *pvParameters) {
         xSemaphoreGive(printMutex);
 
         // Log motion detection
-        logMsg = strdup("Motion detected by sensor");
-        xQueueSend(loggerQueue, &logMsg, portMAX_DELAY);
+        send_log(loggerQueue, portMAX_DELAY, "Motion detected by sensor");
     }
 }
