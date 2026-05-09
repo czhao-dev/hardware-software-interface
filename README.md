@@ -21,16 +21,11 @@ This repo is structured as a portfolio-friendly embedded systems sample: applica
 ├── src/                     # Application task implementations
 ├── docs/                    # Architecture and setup notes
 ├── Makefile                 # POSIX simulation build
-├── requirements.txt         # Human-readable build dependency checklist
 ├── LICENSE
 └── README.md
 ```
 
 ## Requirements
-
-This is a C/FreeRTOS project, so `requirements.txt` is a dependency checklist rather than a Python `pip` install file.
-
-Required:
 
 - GCC or Clang C compiler
 - GNU Make
