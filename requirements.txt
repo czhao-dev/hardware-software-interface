@@ -1,0 +1,9 @@
+# FreeRTOS Smart Task Scheduler requirements
+# This is a human-readable dependency checklist for a C/FreeRTOS project,
+# not a Python pip requirements file.
+
+GCC or Clang C compiler
+GNU Make
+POSIX threads / pthread support
+FreeRTOS kernel sources with POSIX port
+Unix-like shell environment
