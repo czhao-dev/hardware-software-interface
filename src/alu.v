@@ -53,7 +53,6 @@ module alu (
                 endcase
             end
             3'b111: result = (a < b) ? 4'b0001 : 4'b0000; // SLT
-            default: result = 4'b0000;
         endcase
     end
 
