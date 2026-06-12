@@ -32,8 +32,6 @@
 
 #define configGENERATE_RUN_TIME_STATS           1
 #define configUSE_STATS_FORMATTING_FUNCTIONS    1
-#define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()
-#define portGET_RUN_TIME_COUNTER_VALUE()        xTaskGetTickCount()
 
 #define INCLUDE_vTaskPrioritySet                1
 #define INCLUDE_uxTaskPriorityGet               1
