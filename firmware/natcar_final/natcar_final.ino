@@ -23,6 +23,9 @@ const int PIXEL_COUNT = 128;
 const int CAMERA_CENTER_PIXEL = 58;
 const int LINE_BRIGHTNESS_THRESHOLD = 200;
 const int MIN_EDGE_STRENGTH = 25;
+// Sanity bound on edge separation: rejects readings where the strongest
+// rising/falling edges come from unrelated features rather than one line.
+const int MAX_LINE_WIDTH_PIXELS = 40;
 const int LOOP_DELAY_MS = 10;
 
 // Speed tuning
@@ -30,6 +33,8 @@ const int TOP_SPEED_PWM = 100;
 const int MIN_SPEED_PWM = 30;
 const int STOP_SPEED_PWM = 0;
 const int MAX_LOST_LINE_FRAMES = 25;
+// Max PWM change per loop when recovering from a lost-line slowdown/stop.
+const int MAX_PWM_STEP_PER_LOOP = 1;
 const float TURN_SLOWDOWN_GAIN = 1.8;
 const float SPEED_KP = 1.0;
 const float SPEED_KD = 0.0;
@@ -59,6 +64,7 @@ LineDetection detectLine();
 void updateSteering(const LineDetection &line);
 void updateMotorSpeed(const LineDetection &line);
 float rampDown(float pwm, float minimumPwm);
+float rampToward(float pwm, float target, float maxStep);
 void writeMotorOutputs();
 int clampPwm(float value);
 
@@ -97,6 +103,10 @@ void loop() {
 void readCamera() {
   startCameraFrame();
 
+  // Note: per the TSL1401 timing diagram, AO can lag the SI pulse by one
+  // clock relative to this loop, which would shift pixels[] by a constant
+  // pixel offset. CAMERA_CENTER_PIXEL was calibrated empirically against
+  // this exact timing, so any change here must be re-calibrated on the car.
   for (int i = 0; i < PIXEL_COUNT; i++) {
     digitalWrite(PIN_CAMERA_CLK, HIGH);
     pixels[i] = analogRead(PIN_CAMERA_AO);
@@ -132,7 +142,9 @@ LineDetection detectLine() {
   }
 
   const int midpoint = (headIndex + tailIndex) / 2;
-  const bool detected = pixels[midpoint] > LINE_BRIGHTNESS_THRESHOLD
+  const bool detected = headIndex < tailIndex
+    && (tailIndex - headIndex) <= MAX_LINE_WIDTH_PIXELS
+    && pixels[midpoint] > LINE_BRIGHTNESS_THRESHOLD
     && maxRisingEdge >= MIN_EDGE_STRENGTH
     && abs(maxFallingEdge) >= MIN_EDGE_STRENGTH;
 
@@ -144,8 +156,13 @@ LineDetection detectLine() {
     return result;
   }
 
-  previousLinePosition = currentLinePosition;
-  currentLinePosition = midpoint - CAMERA_CENTER_PIXEL;
+  const int newPosition = midpoint - CAMERA_CENTER_PIXEL;
+
+  // If the line was just reacquired after being lost, treat this frame as
+  // having zero derivative instead of computing it against a stale position
+  // from before the gap (which would spike the steering D-term).
+  previousLinePosition = (lostLineFrames > 0) ? newPosition : currentLinePosition;
+  currentLinePosition = newPosition;
   result.position = currentLinePosition;
   return result;
 }
@@ -185,6 +202,7 @@ void updateMotorSpeed(const LineDetection &line) {
     return;
   }
 
+  const bool recovering = lostLineFrames > 0;
   lostLineFrames = 0;
 
   const int absLineError = abs(line.position);
@@ -193,6 +211,13 @@ void updateMotorSpeed(const LineDetection &line) {
 
   leftMotorPwm = targetPwm * SPEED_KP + (targetPwm - previousLeftPwm) * SPEED_KD;
   rightMotorPwm = targetPwm * SPEED_KP + (targetPwm - previousRightPwm) * SPEED_KD;
+
+  // After the line was lost (and possibly ramped down to a stop), ramp back
+  // up to the target speed instead of snapping straight to it.
+  if (recovering) {
+    leftMotorPwm = rampToward(previousLeftPwm, leftMotorPwm, MAX_PWM_STEP_PER_LOOP);
+    rightMotorPwm = rampToward(previousRightPwm, rightMotorPwm, MAX_PWM_STEP_PER_LOOP);
+  }
 
   leftMotorPwm = max(leftMotorPwm, (float)MIN_SPEED_PWM);
   rightMotorPwm = max(rightMotorPwm, (float)MIN_SPEED_PWM);
@@ -204,6 +229,18 @@ float rampDown(float pwm, float minimumPwm) {
   }
 
   return minimumPwm;
+}
+
+float rampToward(float pwm, float target, float maxStep) {
+  if (target > pwm + maxStep) {
+    return pwm + maxStep;
+  }
+
+  if (target < pwm - maxStep) {
+    return pwm - maxStep;
+  }
+
+  return target;
 }
 
 void writeMotorOutputs() {
