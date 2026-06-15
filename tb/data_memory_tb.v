@@ -4,10 +4,10 @@ module data_memory_tb;
     reg clk;
     reg reset;
     reg write_enable;
-    reg [3:0] write_addr;
-    reg [3:0] write_data;
-    reg [3:0] read_addr;
-    wire [3:0] read_data;
+    reg [7:0] write_addr;
+    reg [7:0] write_data;
+    reg [7:0] read_addr;
+    wire [7:0] read_data;
     integer failures;
 
     data_memory uut (
@@ -24,8 +24,8 @@ module data_memory_tb;
 
     task expect_value;
         input [127:0] label;
-        input [3:0] actual;
-        input [3:0] expected;
+        input [7:0] actual;
+        input [7:0] expected;
         begin
             if (actual !== expected) begin
                 $display("FAIL %0s: expected %h, got %h", label, expected, actual);
@@ -35,8 +35,8 @@ module data_memory_tb;
     endtask
 
     task write_mem;
-        input [3:0] addr;
-        input [3:0] data;
+        input [7:0] addr;
+        input [7:0] data;
         begin
             @(negedge clk);
             write_enable = 1'b1;
@@ -52,30 +52,35 @@ module data_memory_tb;
         failures = 0;
         reset = 1'b1;
         write_enable = 1'b0;
-        write_addr = 4'b0000;
-        write_data = 4'b0000;
-        read_addr = 4'b0000;
+        write_addr = 8'h00;
+        write_data = 8'h00;
+        read_addr = 8'h00;
 
         #12 reset = 1'b0;
         #1;
-        expect_value("reset mem[0]", read_data, 4'b0000);
+        expect_value("reset mem[0]", read_data, 8'h00);
 
-        write_mem(4'd3, 4'ha);
-        write_mem(4'd9, 4'h5);
+        write_mem(8'd3, 8'haa);
+        write_mem(8'd9, 8'h55);
+        write_mem(8'd255, 8'hff);
 
-        read_addr = 4'd3;
+        read_addr = 8'd3;
         #1;
-        expect_value("read mem[3]", read_data, 4'ha);
+        expect_value("read mem[3]", read_data, 8'haa);
 
-        read_addr = 4'd9;
+        read_addr = 8'd9;
         #1;
-        expect_value("read mem[9]", read_data, 4'h5);
+        expect_value("read mem[9]", read_data, 8'h55);
+
+        read_addr = 8'd255;
+        #1;
+        expect_value("read mem[255]", read_data, 8'hff);
 
         reset = 1'b1;
         #10 reset = 1'b0;
-        read_addr = 4'd3;
+        read_addr = 8'd3;
         #1;
-        expect_value("reset clears mem[3]", read_data, 4'b0000);
+        expect_value("reset clears mem[3]", read_data, 8'h00);
 
         if (failures == 0) begin
             $display("data_memory_tb: PASS");
