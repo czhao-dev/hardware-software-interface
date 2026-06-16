@@ -1,5 +1,41 @@
 `timescale 1ns / 1ps
 
+// Pipeline-aware integration testbench for the 2-stage IF/EX-WB CPU.
+//
+// Timing relative to Phase 1 (single-cycle):
+//   - One extra "fill" step at the start empties the reset NOP from
+//     the pipeline register; every subsequent step executes exactly
+//     one real instruction in EX-WB.
+//   - Each taken branch or jump inserts one bubble step: the pipeline
+//     register holds NOP (0xF000) for that cycle and no architectural
+//     state changes.  These bubble steps are verified explicitly.
+//   - The IF-stage PC (top-level `pc` output) is one ahead of EX-WB,
+//     so checked values are consistently +1 compared to Phase 1.
+//   - After HALT the IF-stage PC is frozen at its current value (18),
+//     one beyond the HALT instruction address (17).
+//
+// Test program layout (same instructions as Phase 1):
+//   addr  0: LDI  R0, 4
+//   addr  1: LDI  R1, 5
+//   addr  2: ADD  R2, R0, R1
+//   addr  3: SUB  R3, R0, R1
+//   addr  4: ANDI R2, 8
+//   addr  5: LDI  R4, 1
+//   addr  6: SLL  R2, R2, R4
+//   addr  7: SLT  R3, R0, R1
+//   addr  8: ST   R3, 5
+//   addr  9: LD   R1, 5
+//   addr 10: SUB  R2, R1, R1       ; sets Z=1
+//   addr 11: BNE  +3               ; not taken
+//   addr 12: BEQ  +3               ; taken -> pc=15  [bubble]
+//   addr 13: LDI  R0, 0xFF         ; trap (skipped)
+//   addr 14: LDI  R0, 0xFF         ; trap (skipped)
+//   addr 15: JAL  18               ; R7=16, pc=18    [bubble]
+//   addr 16: LDI  R6, 0x99         ; return target
+//   addr 17: HALT
+//   addr 18: LDI  R5, 0x2A         ; subroutine body
+//   addr 19: RET                   ; pc=R7=16        [bubble]
+
 module top_tb;
     reg clk;
     reg reset;
@@ -51,10 +87,9 @@ module top_tb;
     always #5 clk = ~clk;
 
     // -----------------------------------------------------------------
-    // ISA v2 encode helpers
+    // ISA v2 encode helpers (identical to the assembler's encodings)
     // -----------------------------------------------------------------
 
-    // Class 00 ALU-REG: dest <= src_a OP(op) src_b
     function [15:0] encode_alu_reg;
         input [3:0] op;
         input [2:0] dest;
@@ -65,7 +100,6 @@ module top_tb;
         end
     endfunction
 
-    // Class 01 ALU-IMM (accumulator): dest <= dest OP(subop) imm, or dest <= imm for LDI
     function [15:0] encode_alu_imm;
         input [2:0] subop;
         input [2:0] dest;
@@ -75,7 +109,6 @@ module top_tb;
         end
     endfunction
 
-    // Class 10 BRANCH
     function [15:0] encode_branch;
         input [2:0] cond;
         input [7:0] offset;
@@ -84,7 +117,6 @@ module top_tb;
         end
     endfunction
 
-    // Class 11/00 JMP / JAL
     function [15:0] encode_jump;
         input [7:0] target;
         input link;
@@ -93,7 +125,6 @@ module top_tb;
         end
     endfunction
 
-    // Class 11/01 LD
     function [15:0] encode_load;
         input [2:0] dest;
         input [7:0] addr;
@@ -102,7 +133,6 @@ module top_tb;
         end
     endfunction
 
-    // Class 11/10 ST
     function [15:0] encode_store;
         input [2:0] src;
         input [7:0] addr;
@@ -111,7 +141,6 @@ module top_tb;
         end
     endfunction
 
-    // Class 11/11 SYSTEM (NOP/HALT/RET)
     function [15:0] encode_system;
         input [1:0] sysop;
         begin
@@ -119,23 +148,17 @@ module top_tb;
         end
     endfunction
 
-    // ALU opcodes (mirrors src/alu.v)
     localparam [3:0] OP_ADD = 4'b0000;
     localparam [3:0] OP_SUB = 4'b0001;
     localparam [3:0] OP_SLL = 4'b0101;
     localparam [3:0] OP_SLT = 4'b0111;
-
-    // ALU-IMM subops (mirrors src/control_unit.v)
     localparam [2:0] SUB_LDI  = 3'b000;
     localparam [2:0] SUB_ANDI = 3'b011;
-
-    // Branch conditions (mirrors src/top.v)
     localparam [2:0] COND_BEQ = 3'b000;
     localparam [2:0] COND_BNE = 3'b001;
-
-    // SYSTEM sysops
     localparam [1:0] SYS_HALT = 2'b01;
     localparam [1:0] SYS_RET  = 2'b10;
+    localparam [15:0] NOP_WORD = 16'hF000;
 
     // -----------------------------------------------------------------
     // Helper tasks
@@ -178,7 +201,7 @@ module top_tb;
         end
     endtask
 
-    // Pulse run_enable for exactly one clock cycle.
+    // Advance the pipeline by one clock cycle.
     task step;
         begin
             @(negedge clk);
@@ -189,30 +212,6 @@ module top_tb;
             run_enable = 1'b0;
         end
     endtask
-
-    // -----------------------------------------------------------------
-    // Test program
-    // -----------------------------------------------------------------
-    // addr  0: LDI  R0, 4
-    // addr  1: LDI  R1, 5
-    // addr  2: ADD  R2, R0, R1        ; R2 = 9
-    // addr  3: SUB  R3, R0, R1        ; R3 = 0xFF, flags: N=1 C=1
-    // addr  4: ANDI R2, 8             ; R2 = 9 & 8 = 8
-    // addr  5: LDI  R4, 1
-    // addr  6: SLL  R2, R2, R4        ; R2 = 8 << 1 = 16
-    // addr  7: SLT  R3, R0, R1        ; R3 = (4<5) = 1
-    // addr  8: ST   R3, 5             ; dmem[5] = 1
-    // addr  9: LD   R1, 5             ; R1 = dmem[5] = 1
-    // addr 10: SUB  R2, R1, R1        ; R2 = 0, flags: Z=1
-    // addr 11: BNE  +3                ; not taken (Z=1)
-    // addr 12: BEQ  +3                ; taken -> pc = 15 (skips 13,14)
-    // addr 13: LDI  R0, 0xFF          ; (skipped trap)
-    // addr 14: LDI  R0, 0xFF          ; (skipped trap)
-    // addr 15: JAL  18                ; R7 = 16, pc = 18
-    // addr 16: LDI  R6, 0x99          ; (return target after RET)
-    // addr 17: HALT
-    // addr 18: LDI  R5, 0x2A          ; subroutine body
-    // addr 19: RET                    ; pc = R7 = 16
 
     initial begin
         clk = 1'b0;
@@ -255,135 +254,213 @@ module top_tb;
         write_instruction(8'd18, encode_alu_imm(SUB_LDI, 3'd5, 8'h2A));
         write_instruction(8'd19, encode_system(SYS_RET));
 
+        // -----------------------------------------------------------------
+        // Fill step: EX-WB drains the reset NOP; addr 0 enters EX-WB next.
+        // -----------------------------------------------------------------
+        step;
+        expect_equal("pc after fill", pc, 8'd1);
+
+        // -----------------------------------------------------------------
         // addr 0: LDI R0, 4
+        // -----------------------------------------------------------------
         step;
         expect_equal("R0 after LDI 4", uut.rf.registers[0], 8'h04);
-        expect_equal("pc after step0", pc, 8'd1);
-        expect_flag("flags zero after step0", uut.flag_zero, 1'b0);
-        expect_flag("flags negative after step0", uut.flag_negative, 1'b0);
-        expect_flag("flags carry after step0", uut.flag_carry, 1'b0);
-        expect_flag("flags overflow after step0", uut.flag_overflow, 1'b0);
+        expect_equal("pc after LDI R0", pc, 8'd2);
+        expect_flag("fz after LDI R0", uut.flag_zero, 1'b0);
+        expect_flag("fn after LDI R0", uut.flag_negative, 1'b0);
+        expect_flag("fc after LDI R0", uut.flag_carry, 1'b0);
+        expect_flag("fo after LDI R0", uut.flag_overflow, 1'b0);
 
+        // -----------------------------------------------------------------
         // addr 1: LDI R1, 5
+        // -----------------------------------------------------------------
         step;
         expect_equal("R1 after LDI 5", uut.rf.registers[1], 8'h05);
-        expect_equal("pc after step1", pc, 8'd2);
+        expect_equal("pc after LDI R1", pc, 8'd3);
 
-        // addr 2: ADD R2, R0, R1 -> R2 = 9
+        // -----------------------------------------------------------------
+        // addr 2: ADD R2, R0, R1  ->  R2 = 9
+        // Check combinational EX-WB outputs before the clock edge.
+        // -----------------------------------------------------------------
         @(negedge clk);
         run_enable = 1'b1;
         #1;
-        expect_equal("result for ADD", result, 8'h09);
-        expect_flag("zero for ADD", zero, 1'b0);
-        expect_flag("negative for ADD", negative, 1'b0);
-        expect_flag("carry for ADD", carry, 1'b0);
-        expect_flag("overflow for ADD", overflow, 1'b0);
+        expect_equal("result ADD", result, 8'h09);
+        expect_flag("zero ADD", zero, 1'b0);
+        expect_flag("negative ADD", negative, 1'b0);
+        expect_flag("carry ADD", carry, 1'b0);
+        expect_flag("overflow ADD", overflow, 1'b0);
         @(posedge clk);
         #1;
         @(negedge clk);
         run_enable = 1'b0;
         expect_equal("R2 after ADD", uut.rf.registers[2], 8'h09);
-        expect_equal("pc after step2", pc, 8'd3);
+        expect_equal("pc after ADD", pc, 8'd4);
 
-        // addr 3: SUB R3, R0, R1 -> R3 = 0xFF, N=1, C=1
+        // -----------------------------------------------------------------
+        // addr 3: SUB R3, R0, R1  ->  R3 = 0xFF, N=1, C=1
+        // -----------------------------------------------------------------
         @(negedge clk);
         run_enable = 1'b1;
         #1;
-        expect_equal("result for SUB", result, 8'hFF);
-        expect_flag("zero for SUB", zero, 1'b0);
-        expect_flag("negative for SUB", negative, 1'b1);
-        expect_flag("carry for SUB", carry, 1'b1);
-        expect_flag("overflow for SUB", overflow, 1'b0);
+        expect_equal("result SUB", result, 8'hFF);
+        expect_flag("zero SUB", zero, 1'b0);
+        expect_flag("negative SUB", negative, 1'b1);
+        expect_flag("carry SUB", carry, 1'b1);
+        expect_flag("overflow SUB", overflow, 1'b0);
         @(posedge clk);
         #1;
         @(negedge clk);
         run_enable = 1'b0;
         expect_equal("R3 after SUB", uut.rf.registers[3], 8'hFF);
-        expect_equal("pc after step3", pc, 8'd4);
+        expect_equal("pc after SUB", pc, 8'd5);
 
-        // addr 4: ANDI R2, 8 -> R2 = 9 & 8 = 8
+        // -----------------------------------------------------------------
+        // addr 4: ANDI R2, 8  ->  R2 = 8
+        // -----------------------------------------------------------------
         step;
         expect_equal("R2 after ANDI", uut.rf.registers[2], 8'h08);
-        expect_equal("pc after step4", pc, 8'd5);
-        expect_flag("flags zero after ANDI", uut.flag_zero, 1'b0);
-        expect_flag("flags negative after ANDI", uut.flag_negative, 1'b0);
-        expect_flag("flags carry after ANDI", uut.flag_carry, 1'b0);
-        expect_flag("flags overflow after ANDI", uut.flag_overflow, 1'b0);
+        expect_equal("pc after ANDI", pc, 8'd6);
+        expect_flag("fz after ANDI", uut.flag_zero, 1'b0);
+        expect_flag("fn after ANDI", uut.flag_negative, 1'b0);
+        expect_flag("fc after ANDI", uut.flag_carry, 1'b0);
+        expect_flag("fo after ANDI", uut.flag_overflow, 1'b0);
 
+        // -----------------------------------------------------------------
         // addr 5: LDI R4, 1
+        // -----------------------------------------------------------------
         step;
         expect_equal("R4 after LDI 1", uut.rf.registers[4], 8'h01);
-        expect_equal("pc after step5", pc, 8'd6);
+        expect_equal("pc after LDI R4", pc, 8'd7);
 
-        // addr 6: SLL R2, R2, R4 -> R2 = 8 << 1 = 16
+        // -----------------------------------------------------------------
+        // addr 6: SLL R2, R2, R4  ->  R2 = 16
+        // -----------------------------------------------------------------
         step;
         expect_equal("R2 after SLL", uut.rf.registers[2], 8'h10);
-        expect_equal("pc after step6", pc, 8'd7);
-        expect_flag("flags carry after SLL", uut.flag_carry, 1'b0);
+        expect_equal("pc after SLL", pc, 8'd8);
+        expect_flag("fc after SLL", uut.flag_carry, 1'b0);
 
-        // addr 7: SLT R3, R0, R1 -> R3 = (4<5) = 1
+        // -----------------------------------------------------------------
+        // addr 7: SLT R3, R0, R1  ->  R3 = 1
+        // -----------------------------------------------------------------
         step;
         expect_equal("R3 after SLT", uut.rf.registers[3], 8'h01);
-        expect_equal("pc after step7", pc, 8'd8);
+        expect_equal("pc after SLT", pc, 8'd9);
 
-        // addr 8: ST R3, 5 -> dmem[5] = 1
+        // -----------------------------------------------------------------
+        // addr 8: ST R3, 5  ->  dmem[5] = 1
+        // -----------------------------------------------------------------
         step;
         expect_equal("dmem[5] after ST", uut.dmem.memory[5], 8'h01);
-        expect_equal("pc after step8", pc, 8'd9);
+        expect_equal("pc after ST", pc, 8'd10);
 
-        // addr 9: LD R1, 5 -> R1 = dmem[5] = 1
+        // -----------------------------------------------------------------
+        // addr 9: LD R1, 5  ->  R1 = 1
+        // -----------------------------------------------------------------
         step;
         expect_equal("R1 after LD", uut.rf.registers[1], 8'h01);
-        expect_equal("pc after step9", pc, 8'd10);
+        expect_equal("pc after LD", pc, 8'd11);
 
-        // addr 10: SUB R2, R1, R1 -> R2 = 0, Z=1
+        // -----------------------------------------------------------------
+        // addr 10: SUB R2, R1, R1  ->  R2 = 0, Z=1
+        // -----------------------------------------------------------------
         step;
-        expect_equal("R2 after SUB(R1,R1)", uut.rf.registers[2], 8'h00);
-        expect_equal("pc after step10", pc, 8'd11);
-        expect_flag("flags zero after step10", uut.flag_zero, 1'b1);
-        expect_flag("flags negative after step10", uut.flag_negative, 1'b0);
-        expect_flag("flags carry after step10", uut.flag_carry, 1'b0);
-        expect_flag("flags overflow after step10", uut.flag_overflow, 1'b0);
+        expect_equal("R2 after SUB R1 R1", uut.rf.registers[2], 8'h00);
+        expect_equal("pc after SUB R1 R1", pc, 8'd12);
+        expect_flag("fz after SUB R1 R1", uut.flag_zero, 1'b1);
+        expect_flag("fn after SUB R1 R1", uut.flag_negative, 1'b0);
+        expect_flag("fc after SUB R1 R1", uut.flag_carry, 1'b0);
+        expect_flag("fo after SUB R1 R1", uut.flag_overflow, 1'b0);
 
-        // addr 11: BNE +3 -> not taken (Z=1), pc = 12
+        // -----------------------------------------------------------------
+        // addr 11: BNE +3  ->  not taken (Z=1), pc = 13
+        // -----------------------------------------------------------------
         step;
-        expect_equal("pc after step11 (BNE not taken)", pc, 8'd12);
+        expect_equal("pc after BNE not-taken", pc, 8'd13);
 
-        // addr 12: BEQ +3 -> taken (Z=1), pc = 12+3 = 15 (skips 13,14)
+        // -----------------------------------------------------------------
+        // addr 12: BEQ +3  ->  taken (Z=1), pc = 15; bubble injected.
+        //   instr[13] (trap) was speculatively fetched but is squashed.
+        // -----------------------------------------------------------------
         step;
-        expect_equal("pc after step12 (BEQ taken)", pc, 8'd15);
+        expect_equal("pc after BEQ taken", pc, 8'd15);
 
-        // addr 15: JAL 18 -> R7 = pc+1 = 16, pc = 18
+        // Bubble: pipeline register holds NOP, no architectural side effects.
+        @(negedge clk);
+        run_enable = 1'b1;
+        #1;
+        expect_equal("bubble BEQ: NOP in EX-WB", instruction, NOP_WORD);
+        @(posedge clk);
+        #1;
+        @(negedge clk);
+        run_enable = 1'b0;
+        expect_equal("pc after BEQ bubble", pc, 8'd16);
+
+        // -----------------------------------------------------------------
+        // addr 15: JAL 18  ->  R7 = ex_pc+1 = 16, pc = 18; bubble injected.
+        // -----------------------------------------------------------------
         step;
         expect_equal("R7 after JAL", uut.rf.registers[7], 8'd16);
-        expect_equal("pc after step15 (JAL)", pc, 8'd18);
+        expect_equal("pc after JAL", pc, 8'd18);
 
-        // addr 18: LDI R5, 0x2A (subroutine body)
+        // Bubble after JAL.
+        @(negedge clk);
+        run_enable = 1'b1;
+        #1;
+        expect_equal("bubble JAL: NOP in EX-WB", instruction, NOP_WORD);
+        @(posedge clk);
+        #1;
+        @(negedge clk);
+        run_enable = 1'b0;
+        expect_equal("pc after JAL bubble", pc, 8'd19);
+
+        // -----------------------------------------------------------------
+        // addr 18: LDI R5, 0x2A  (subroutine body)
+        // -----------------------------------------------------------------
         step;
         expect_equal("R5 after LDI 0x2A", uut.rf.registers[5], 8'h2A);
-        expect_equal("pc after step18", pc, 8'd19);
+        expect_equal("pc after LDI R5", pc, 8'd20);
 
-        // addr 19: RET -> pc = R7 = 16
+        // -----------------------------------------------------------------
+        // addr 19: RET  ->  pc = R7 = 16; bubble injected.
+        // -----------------------------------------------------------------
         step;
-        expect_equal("pc after step19 (RET)", pc, 8'd16);
+        expect_equal("pc after RET", pc, 8'd16);
 
-        // addr 16: LDI R6, 0x99 (after RET)
+        // Bubble after RET.
+        @(negedge clk);
+        run_enable = 1'b1;
+        #1;
+        expect_equal("bubble RET: NOP in EX-WB", instruction, NOP_WORD);
+        @(posedge clk);
+        #1;
+        @(negedge clk);
+        run_enable = 1'b0;
+        expect_equal("pc after RET bubble", pc, 8'd17);
+
+        // -----------------------------------------------------------------
+        // addr 16: LDI R6, 0x99  (execution after RET)
+        // -----------------------------------------------------------------
         step;
         expect_equal("R6 after LDI 0x99", uut.rf.registers[6], 8'h99);
-        expect_equal("pc after step16", pc, 8'd17);
+        expect_equal("pc after LDI R6", pc, 8'd18);
 
-        // addr 17: HALT -> halted = 1, pc holds at 17
+        // -----------------------------------------------------------------
+        // addr 17: HALT  ->  halted = 1, IF-stage pc frozen at 18
+        // -----------------------------------------------------------------
         step;
         expect_flag("halted after HALT", halted, 1'b1);
-        expect_equal("pc after HALT", pc, 8'd17);
+        expect_equal("pc frozen after HALT", pc, 8'd18);
 
-        // Further steps while halted must have no effect.
+        // Extra step while halted: nothing should change.
         step;
         expect_flag("halted stays set", halted, 1'b1);
-        expect_equal("pc stays after HALT", pc, 8'd17);
+        expect_equal("pc unchanged after extra step", pc, 8'd18);
 
-        // R0 must still be 4: the skipped trap instructions at 13/14 never executed.
-        expect_equal("R0 unchanged (trap not executed)", uut.rf.registers[0], 8'h04);
+        // R0 must still be 4: the trap instructions at addrs 13/14 were
+        // squashed by the BEQ flush and never reached EX-WB.
+        expect_equal("R0 unchanged (trap skipped)", uut.rf.registers[0], 8'h04);
 
         if (failures == 0) begin
             $display("top_tb: PASS");
