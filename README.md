@@ -1,30 +1,56 @@
 # Verilog Mini CPU
 
-An 8-bit educational CPU written in Verilog with a 2-stage pipeline, a complete 16-opcode ISA, and a Python assembler. Small enough to study in a single sitting; real enough to demonstrate pipelining, branch penalties, and end-to-end toolchain flow.
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+![Verilog](https://img.shields.io/badge/HDL-Verilog-informational)
+![Python](https://img.shields.io/badge/toolchain-Python%203-informational)
+
+An 8-bit pipelined CPU built from scratch in Verilog, with a 16-opcode instruction set, a 2-stage pipeline with branch-flush handling, a custom Python assembler, and a fully self-checking testbench suite. Small enough to read end to end in one sitting; real enough to demonstrate the core ideas behind hardware pipelining.
+
+## Highlights
+
+- **Custom ISA** — 16 ALU operations, immediate/branch/jump/load-store/system classes, all hand-designed with bit-exact field layouts.
+- **Real pipelining** — a 2-stage IF / EX-WB pipeline with a redirect-driven flush mechanism, not just a single-cycle datapath.
+- **Toolchain, not just RTL** — a two-pass Python assembler turns labeled mnemonics into `$readmemh`-ready machine code.
+- **Verified, not just simulated** — every module (ALU, register file, data memory, full CPU, assembler, end-to-end program) has a self-checking automated test.
+
+## Contents
+
+- [Architecture](#architecture)
+- [ISA v2](#isa-v2)
+- [ALU Flags](#alu-flags)
+- [Assembler](#assembler)
+- [Example Program](#example-program)
+- [Project Structure](#project-structure)
+- [Building and Testing](#building-and-testing)
 
 ## Architecture
 
-```
-  ┌─────────────────────────────────────────────────────────┐
-  │  IF stage                    │  EX-WB stage             │
-  │                              │                          │
-  │  PC ──► Instruction Memory  │  Control Unit            │
-  │         (combinational read) │  Register File (R0-R7)   │
-  │                    │         │  ALU + Flag Register     │
-  │                    ▼         │  Data Memory             │
-  │            IF/EX-WB Reg ───►│  Writeback               │
-  │                              │       │                  │
-  │  PC ◄── redirect_target ◄──────── redirect             │
-  └─────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph IF["IF stage"]
+        PC["Program Counter"] --> IMEM["Instruction Memory"]
+    end
+
+    IMEM --> PREG["IF / EX-WB Pipeline Register"]
+
+    subgraph EXWB["EX-WB stage"]
+        CU["Control Unit"] --> RF["Register File (R0-R7)"]
+        RF --> ALU["ALU + Flag Register"]
+        ALU --> DMEM["Data Memory"]
+        DMEM --> WB["Writeback"]
+    end
+
+    PREG --> CU
+    EXWB -- redirect / redirect_target --> PC
 ```
 
 **2-stage pipeline: IF / EX-WB.** The pipeline register (`if_exwb_reg.v`) latches `{instruction[15:0], pc[7:0]}` each clock edge.
 
-**1-cycle branch penalty.** When EX-WB detects a taken branch, jump, or `RET`, it asserts `redirect`. That same signal both updates the PC mux and injects a NOP into the pipeline register's input — no separate flush flag needed. The speculatively-fetched instruction is squashed before it can commit any state.
+**1-cycle branch penalty.** When EX-WB detects a taken branch, jump, or `RET`, it asserts `redirect`. That same signal simultaneously updates the PC mux and injects a NOP into the pipeline register's input — no separate flush flag needed. The speculatively-fetched instruction is squashed before it can commit any state.
 
-**Hazard-free by construction.** The register file and data memory are synchronous-write / asynchronous-read; only one instruction is ever in EX-WB at a time. Instruction *i+1*'s register reads in cycle *k+1* always see instruction *i*'s writeback committed at the clock edge ending cycle *k*. No forwarding or stalls are needed.
+**Hazard-free by construction.** The register file and data memory are synchronous-write / asynchronous-read, and only one instruction is ever in EX-WB at a time. Instruction *i+1*'s register reads in cycle *k+1* always see instruction *i*'s writeback committed at the clock edge ending cycle *k*. No forwarding or stalling logic is required.
 
-**HALT** sets a sticky `halted` output. While asserted, PC and the pipeline register hold and all writes are suppressed, giving testbenches a clean "program finished" signal.
+**HALT** sets a sticky `halted` output. While asserted, the PC and pipeline register hold and all writes are suppressed, giving testbenches a clean "program finished" signal.
 
 ## ISA v2
 
@@ -174,7 +200,7 @@ Output is `$readmemh`-compatible: one 4-digit hex word per line, address 0 first
 
 ## Example Program
 
-`examples/loop_sum.asm` sums 1 + 2 + ... + 10 into R0, exercising the branch flush:
+`examples/loop_sum.asm` sums 1 + 2 + ... + 10 into R0, exercising the loop/branch-flush path end to end:
 
 ```asm
 ; loop_sum.asm — sum 1 + 2 + ... + 10 into R0
