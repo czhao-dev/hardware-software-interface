@@ -1,15 +1,34 @@
 # IEEE NATCAR Autonomous Race Car
 
-An autonomous electric race car built for the IEEE NATCAR competition. The project combines embedded firmware, custom PCB design, optical sensing, inductive sensing, motor control, and real-time steering control on a modified RC car platform.
+![License](https://img.shields.io/github/license/czhao-dev/IEEE-NATCAR-Autonomous-Vehicle)
+![Top Language](https://img.shields.io/github/languages/top/czhao-dev/IEEE-NATCAR-Autonomous-Vehicle)
+![C++](https://img.shields.io/badge/language-C%2B%2B-00599C?logo=cplusplus&logoColor=white)
+![Platform](https://img.shields.io/badge/platform-Teensy%20%2F%20Arduino-00979D?logo=arduino&logoColor=white)
+![PCB](https://img.shields.io/badge/PCB-Eagle%20CAD-orange)
+
+An autonomous electric race car built for the IEEE NATCAR competition. The project spans the full embedded design cycle: custom PCB design, optical and inductive sensing, real-time steering/motor control, and on-track tuning, all running on a modified RC car platform.
 
 The vehicle follows a track using a 128-pixel line-scan camera and explored sensor fusion with three inductive pickups. The final firmware reads the camera, estimates the track line position, applies PD-style steering control, and adjusts motor PWM based on how aggressively the car needs to turn.
+
+![System architecture](images/system-architecture.png)
+
+## Table of Contents
+
+- [Project Highlights](#project-highlights)
+- [How It Works](#how-it-works)
+- [Repository Structure](#repository-structure)
+- [Documentation](#documentation)
+- [Hardware Summary](#hardware-summary)
+- [Firmware Summary](#firmware-summary)
+- [Development Notes](#development-notes)
+- [License](#license)
 
 ## Project Highlights
 
 - Built and tuned an autonomous race car for IEEE NATCAR
 - Implemented real-time line following in Arduino-style C/C++
 - Used a TSL1401-style 128-pixel line-scan camera for track detection
-- Designed around a custom Teensy 3.1-compatible controller PCB
+- Designed a custom Teensy 3.1-compatible controller PCB in Eagle
 - Integrated left, center, and right inductive sensors through analog front-end circuitry
 - Controlled steering with a servo and propulsion with dual PWM motor outputs
 - Iterated through multiple firmware versions during testing and tuning
