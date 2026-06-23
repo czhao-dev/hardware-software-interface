@@ -24,7 +24,6 @@ better understand how RISC-V programs run on a processor.
 - [Getting Started](#getting-started)
 - [Example Usage](#example-usage)
 - [Testing Strategy](#testing-strategy)
-- [Development Roadmap](#development-roadmap)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -305,28 +304,6 @@ $ ./build/riscv_sim_tests
 All three example programs were also run manually end-to-end through the
 `riscv-sim` CLI (`--trace`, `--step`, and `--dump-registers`) to confirm the
 output matches the expected register and trace behavior described above.
-
-## Development Roadmap
-
-Completed milestones:
-
-1. ✅ Project layout, language (C++17), and build system (CMake).
-2. ✅ Register file and CPU state.
-3. ✅ Byte-addressable memory model with bounds checking.
-4. ✅ Instruction decoding for all RV32I formats.
-5. ✅ Arithmetic and logical instruction execution.
-6. ✅ Load and store instruction execution.
-7. ✅ Branch and jump instruction execution.
-8. ✅ Program loading from flat binaries.
-9. ✅ Command-line execution (`riscv-sim`).
-10. ✅ Tracing, single-step, and register-dump options.
-11. ✅ Examples and automated tests.
-
-Future milestones (see [Possible future extensions](#implemented-features) above):
-
-12. Expand documentation with architecture notes.
-13. RV64I, M-extension, compressed instructions, ELF loading, or other
-    extensions, as described above.
 
 ## Contributing
 
