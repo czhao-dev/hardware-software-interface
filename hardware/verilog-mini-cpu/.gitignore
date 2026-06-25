@@ -1,0 +1,7 @@
+build/
+*.vcd
+cpu_test
+*.out
+.DS_Store
+__pycache__/
+*.pyc
