@@ -1,0 +1,17 @@
+build/
+cmake-build-*/
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+*.log
+.DS_Store
+.cache/
+.vscode/
+.idea/
+rust/target/
+
