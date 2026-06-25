@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Arduino / embedded build artifacts
+build/
+*.hex
+*.elf
+*.bin
+*.eep
+*.map
+
+# Editor and local environment files
+.vscode/
+.idea/
+*.swp
+*.tmp
+
