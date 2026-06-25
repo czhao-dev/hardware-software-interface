@@ -1,0 +1,16 @@
+# Build outputs
+build/
+freertos_sim
+*.o
+*.d
+*.elf
+*.map
+
+# Local FreeRTOS dependency checkout
+FreeRTOS/
+
+# Editor and OS metadata
+.DS_Store
+.vscode/
+.idea/
+*.swp
