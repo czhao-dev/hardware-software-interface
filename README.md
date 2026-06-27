@@ -115,3 +115,20 @@ make test-program  # assemble loop_sum.asm and simulate end-to-end
 # NATCAR Firmware (requires Arduino IDE with Teensyduino)
 # Open robotics/natcar-autonomous-vehicle/firmware/natcar_final/natcar_final.ino
 ```
+
+## References
+
+**RISC-V ISA Simulator**
+- [RISC-V ISA Specification, Volume I: Unprivileged ISA](https://github.com/riscv/riscv-isa-manual/releases/latest) — the authoritative reference for RV32I instruction encodings and semantics.
+
+**FreeRTOS Task Scheduler**
+- [FreeRTOS Kernel](https://github.com/FreeRTOS/FreeRTOS-Kernel) — source of the RTOS kernel and POSIX simulator port used in this project.
+- [FreeRTOS Reference Manual](https://www.freertos.org/Documentation/RTOS_book.html) — API reference for tasks, queues, mutexes, and timers.
+
+**Verilog Mini CPU**
+- [Icarus Verilog](https://steveicarus.github.io/iverilog/) — open-source Verilog simulator used for all testbenches.
+- [GTKWave](https://gtkwave.sourceforge.net/) — waveform viewer for VCD output from the integration testbenches.
+
+**IEEE NATCAR Autonomous Vehicle**
+- [TSL1401-DB Line-Scan Camera Datasheet](robotics/natcar-autonomous-vehicle/references/28317-TSL1401-DB-Manual.pdf) — timing diagrams and electrical specs for the 128-pixel optical sensor.
+- [IEEE NATCAR Competition](https://ieee.ucdavis.edu/natcar/) — competition rules and track specifications.
