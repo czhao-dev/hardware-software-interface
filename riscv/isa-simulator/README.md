@@ -17,10 +17,10 @@ better understand how RISC-V programs run on a processor.
 
 - [Overview](#overview)
 - [Project Goals](#project-goals)
+- [Repository Structure](#repository-structure)
 - [Implemented Features](#implemented-features)
 - [RISC-V Background](#risc-v-background)
 - [Simulator Design](#simulator-design)
-- [Repository Structure](#repository-structure)
 - [Getting Started](#getting-started)
 - [Example Usage](#example-usage)
 - [Testing Strategy](#testing-strategy)
@@ -53,6 +53,47 @@ The main goals of this project are:
 - Keep the codebase approachable for people learning CPU architecture.
 - Build a foundation that can later support pipelining, hazards, caches, or
   other microarchitecture concepts.
+
+## Repository Structure
+
+```text
+risc-v-isa-simulator/
+|-- README.md
+|-- LICENSE
+|-- CMakeLists.txt
+|-- include/
+|   `-- riscv_sim/
+|       |-- bits.hpp       # sign-extension / unsigned-wrap helpers
+|       |-- registers.hpp  # 32-register integer file (x0 hardwired to zero)
+|       |-- memory.hpp     # byte-addressable, little-endian memory model
+|       |-- errors.hpp     # simulator exception types
+|       |-- decoder.hpp    # raw word -> structured Instruction
+|       |-- encoder.hpp    # mnemonic -> raw word (used by tests/examples)
+|       |-- cpu.hpp        # fetch/decode/execute loop and CPU state
+|       `-- loader.hpp     # loads flat binaries into memory
+|-- src/
+|   |-- registers.cpp
+|   |-- memory.cpp
+|   |-- decoder.cpp
+|   |-- encoder.cpp
+|   |-- cpu.cpp
+|   |-- loader.cpp
+|   `-- main.cpp        # `riscv-sim` command-line interface
+|-- tests/
+|   |-- test_framework.hpp  # tiny header-only TEST_CASE/CHECK harness
+|   |-- test_main.cpp       # test runner entry point
+|   |-- test_registers.cpp
+|   |-- test_memory.cpp
+|   |-- test_decoder.cpp
+|   |-- test_instructions.cpp
+|   `-- test_integration.cpp
+|-- examples/
+|   |-- arithmetic/addi.bin       (+ .s listing)
+|   |-- branches/loop.bin         (+ .s listing)
+|   `-- memory/load_store.bin     (+ .s listing)
+`-- tools/
+    `-- build_examples.cpp  # regenerates the example .bin files
+```
 
 ## Implemented Features
 
@@ -168,47 +209,6 @@ Useful simulator output may include:
 - Memory reads and writes.
 - Halt reason.
 - Invalid instruction details.
-
-## Repository Structure
-
-```text
-risc-v-isa-simulator/
-|-- README.md
-|-- LICENSE
-|-- CMakeLists.txt
-|-- include/
-|   `-- riscv_sim/
-|       |-- bits.hpp       # sign-extension / unsigned-wrap helpers
-|       |-- registers.hpp  # 32-register integer file (x0 hardwired to zero)
-|       |-- memory.hpp     # byte-addressable, little-endian memory model
-|       |-- errors.hpp     # simulator exception types
-|       |-- decoder.hpp    # raw word -> structured Instruction
-|       |-- encoder.hpp    # mnemonic -> raw word (used by tests/examples)
-|       |-- cpu.hpp        # fetch/decode/execute loop and CPU state
-|       `-- loader.hpp     # loads flat binaries into memory
-|-- src/
-|   |-- registers.cpp
-|   |-- memory.cpp
-|   |-- decoder.cpp
-|   |-- encoder.cpp
-|   |-- cpu.cpp
-|   |-- loader.cpp
-|   `-- main.cpp        # `riscv-sim` command-line interface
-|-- tests/
-|   |-- test_framework.hpp  # tiny header-only TEST_CASE/CHECK harness
-|   |-- test_main.cpp       # test runner entry point
-|   |-- test_registers.cpp
-|   |-- test_memory.cpp
-|   |-- test_decoder.cpp
-|   |-- test_instructions.cpp
-|   `-- test_integration.cpp
-|-- examples/
-|   |-- arithmetic/addi.bin       (+ .s listing)
-|   |-- branches/loop.bin         (+ .s listing)
-|   `-- memory/load_store.bin     (+ .s listing)
-`-- tools/
-    `-- build_examples.cpp  # regenerates the example .bin files
-```
 
 ## Getting Started
 
