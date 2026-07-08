@@ -15,6 +15,7 @@ Important tuned constants:
 | Parameter | Value | Meaning |
 | --- | ---: | --- |
 | `TOP_SPEED_PWM` | `100` | Base motor PWM target before turn slowdown |
+| `TURN_SLOWDOWN_GAIN` | `1.8` | PWM reduction per pixel of line error |
 | `STEERING_KP` | `0.6` | Steering proportional gain |
 | `STEERING_KD` | `0.6` | Steering derivative gain |
 | `SPEED_KP` | `1` | Speed proportional term |
@@ -71,21 +72,31 @@ With the current constants, the servo command is limited to `20` through `70`, c
 
 ## Speed Control
 
-The motor command slows down as the camera error increases:
+The motor command slows down as the camera error increases, then both sides
+are driven from that same target with a first-order smoothing filter
+(`SPEED_KP`/`SPEED_KD` against each side's own previous PWM value):
 
 ```cpp
-targetPwm = TOP_SPEED_PWM - abs(currentLinePosition) * TURN_SLOWDOWN_GAIN;
+float targetPwm = TOP_SPEED_PWM - absLineError * TURN_SLOWDOWN_GAIN;
+targetPwm = max(targetPwm, (float)MIN_SPEED_PWM);
+
+leftMotorPwm  = targetPwm * SPEED_KP + (targetPwm - previousLeftPwm)  * SPEED_KD;
+rightMotorPwm = targetPwm * SPEED_KP + (targetPwm - previousRightPwm) * SPEED_KD;
 ```
 
-The final sketch drives both sides with the same PWM value:
+With `SPEED_KD = 0` in the current tune, this reduces to both sides tracking
+the same `targetPwm` directly — the derivative term exists so a future tune
+can smooth PWM transitions without touching the steering loop.
 
-```cpp
-rightMotorPwm = targetPwm;
-```
-
-When the camera loses the line, the firmware ramps both sides down toward a minimum PWM of `30`. If the line stays lost for `25` frames, the fail-safe sets both motor outputs to `0`.
+When the camera loses the line, the firmware ramps both sides down toward a
+minimum PWM of `30` (one step per loop via `rampDown()`). If the line stays
+lost for `25` frames, the fail-safe sets both motor outputs to `0`; once the
+line is reacquired, `rampToward()` limits how fast PWM can climb back up
+(`MAX_PWM_STEP_PER_LOOP = 1`) instead of snapping straight to target.
 
 ## Control Flow
+
+![Control loop](../images/control-loop.png)
 
 ```mermaid
 flowchart TD

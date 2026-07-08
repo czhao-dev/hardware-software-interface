@@ -216,8 +216,7 @@ Requires CMake 3.16+ and a C++17 compiler. No external runtime or test
 dependencies.
 
 ```bash
-git clone https://github.com/czhao-dev/risc-v-isa-simulator.git
-cd risc-v-isa-simulator
+cd riscv/isa-simulator   # from the root of this repo
 
 # Configure and build everything (library, CLI, tests, example builder)
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release

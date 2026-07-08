@@ -23,6 +23,8 @@ hardware/Natcar 1.01.brd
 
 ## Firmware Pin Map
 
+![Hardware pin map](../images/hardware-pin-map.png)
+
 The final firmware uses the following pin assignments:
 
 | Signal | Firmware name | Pin |

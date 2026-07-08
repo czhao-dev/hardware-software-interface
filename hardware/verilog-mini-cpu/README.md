@@ -22,6 +22,7 @@ An 8-bit pipelined CPU built from scratch in Verilog, with a 16-opcode instructi
 - [Example Program](#example-program)
 - [Project Structure](#project-structure)
 - [Building and Testing](#building-and-testing)
+- [License](#license)
 
 ## Architecture
 
