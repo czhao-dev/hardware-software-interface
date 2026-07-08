@@ -15,14 +15,41 @@ An 8-bit pipelined CPU built from scratch in Verilog, with a 16-opcode instructi
 
 ## Contents
 
+- [Project Structure](#project-structure)
 - [Architecture](#architecture)
 - [ISA v2](#isa-v2)
 - [ALU Flags](#alu-flags)
 - [Assembler](#assembler)
 - [Example Program](#example-program)
-- [Project Structure](#project-structure)
 - [Building and Testing](#building-and-testing)
 - [License](#license)
+
+## Project Structure
+
+```
+.
+├── src/
+│   ├── alu.v                  8-bit ALU, 16 operations
+│   ├── register_file.v        8 × 8-bit register file (R0–R7)
+│   ├── instruction_memory.v   256 × 16-bit instruction memory
+│   ├── data_memory.v          256 × 8-bit data memory
+│   ├── control_unit.v         instruction decode and field extraction
+│   ├── if_exwb_reg.v          IF/EX-WB pipeline register
+│   └── top.v                  top-level CPU (IF + EX-WB stages)
+├── tb/
+│   ├── alu_tb.v               ALU unit test
+│   ├── register_file_tb.v     register file unit test
+│   ├── data_memory_tb.v       data memory unit test
+│   ├── top_tb.v               full-CPU integration test (instruction-by-instruction)
+│   └── top_program_tb.v       end-to-end program test (loads loop_sum.hex, checks result)
+├── tools/
+│   ├── asm.py                 two-pass assembler
+│   └── test_asm.py            assembler unit tests (30 cases)
+├── examples/
+│   └── loop_sum.asm           example program
+├── Makefile
+└── LICENSE
+```
 
 ## Architecture
 
@@ -229,33 +256,6 @@ f400    ; HALT
 ```
 
 Expected result after HALT: R0 = 0x37 (55), R1 = 0x00.
-
-## Project Structure
-
-```
-.
-├── src/
-│   ├── alu.v                  8-bit ALU, 16 operations
-│   ├── register_file.v        8 × 8-bit register file (R0–R7)
-│   ├── instruction_memory.v   256 × 16-bit instruction memory
-│   ├── data_memory.v          256 × 8-bit data memory
-│   ├── control_unit.v         instruction decode and field extraction
-│   ├── if_exwb_reg.v          IF/EX-WB pipeline register
-│   └── top.v                  top-level CPU (IF + EX-WB stages)
-├── tb/
-│   ├── alu_tb.v               ALU unit test
-│   ├── register_file_tb.v     register file unit test
-│   ├── data_memory_tb.v       data memory unit test
-│   ├── top_tb.v               full-CPU integration test (instruction-by-instruction)
-│   └── top_program_tb.v       end-to-end program test (loads loop_sum.hex, checks result)
-├── tools/
-│   ├── asm.py                 two-pass assembler
-│   └── test_asm.py            assembler unit tests (30 cases)
-├── examples/
-│   └── loop_sum.asm           example program
-├── Makefile
-└── LICENSE
-```
 
 ## Building and Testing
 

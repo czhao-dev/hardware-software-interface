@@ -25,6 +25,39 @@ thread connecting them.
 | [hardware/verilog-mini-cpu](hardware/verilog-mini-cpu) | Digital Hardware | Verilog, Python, Icarus | An 8-bit pipelined CPU with a custom 16-opcode ISA, a 2-stage IF/EX-WB pipeline, a two-pass Python assembler, and a fully self-checking testbench suite. |
 | [robotics/natcar-autonomous-vehicle](robotics/natcar-autonomous-vehicle) | Embedded Robotics | C/C++, Arduino/Teensy, Eagle | An autonomous race car for the IEEE NATCAR competition: custom PCB, 128-pixel line-scan camera sensing, PD steering control, and dual PWM motor drive. |
 
+## Repository Structure
+
+```
+computer-systems-lab/
+├── README.md
+├── riscv/
+│   └── isa-simulator/          # RV32I simulator (C++17)
+│       ├── include/riscv_sim/  # headers: decoder, cpu, memory, etc.
+│       ├── src/                # implementation + riscv-sim CLI
+│       ├── tests/              # 42-test suite
+│       └── examples/           # flat binary programs
+├── rtos/
+│   └── freertos-task-scheduler/ # FreeRTOS POSIX simulation (C)
+│       ├── include/
+│       ├── src/                 # task implementations
+│       └── docs/                # architecture + setup notes
+├── hardware/
+│   └── verilog-mini-cpu/        # 8-bit pipelined CPU (Verilog)
+│       ├── src/                 # RTL modules
+│       ├── tb/                  # testbenches
+│       ├── tools/               # Python assembler
+│       └── examples/            # assembly programs
+└── robotics/
+    └── natcar-autonomous-vehicle/ # IEEE NATCAR race car (C/C++)
+        ├── firmware/              # final + archived sketches
+        ├── hardware/              # Eagle schematic and board files
+        ├── docs/                  # system overview, control, calibration
+        └── data/                  # inductor measurement data
+```
+
+Each project keeps its own README, build instructions, and license in its
+respective directory.
+
 ## Project Deep Dives
 
 ### RISC-V ISA Simulator ([`riscv/isa-simulator`](riscv/isa-simulator))
@@ -166,39 +199,6 @@ track, real sensors, and real noise.
 | Embedded Hardware | PCB design (Eagle), Teensy/Arduino, servo and motor PWM, analog sensor front ends |
 | Verification & Testing | Unit tests, integration tests, self-checking testbenches, waveform capture (VCD/GTKWave) |
 | Toolchain | Python assembler, CMake, GNU Make, Icarus Verilog, custom test harnesses |
-
-## Repository Structure
-
-```
-computer-systems-lab/
-├── README.md
-├── riscv/
-│   └── isa-simulator/          # RV32I simulator (C++17)
-│       ├── include/riscv_sim/  # headers: decoder, cpu, memory, etc.
-│       ├── src/                # implementation + riscv-sim CLI
-│       ├── tests/              # 42-test suite
-│       └── examples/           # flat binary programs
-├── rtos/
-│   └── freertos-task-scheduler/ # FreeRTOS POSIX simulation (C)
-│       ├── include/
-│       ├── src/                 # task implementations
-│       └── docs/                # architecture + setup notes
-├── hardware/
-│   └── verilog-mini-cpu/        # 8-bit pipelined CPU (Verilog)
-│       ├── src/                 # RTL modules
-│       ├── tb/                  # testbenches
-│       ├── tools/               # Python assembler
-│       └── examples/            # assembly programs
-└── robotics/
-    └── natcar-autonomous-vehicle/ # IEEE NATCAR race car (C/C++)
-        ├── firmware/              # final + archived sketches
-        ├── hardware/              # Eagle schematic and board files
-        ├── docs/                  # system overview, control, calibration
-        └── data/                  # inductor measurement data
-```
-
-Each project keeps its own README, build instructions, and license in its
-respective directory.
 
 ## Quick Start
 
