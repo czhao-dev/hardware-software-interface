@@ -1,4 +1,4 @@
-# Computer Systems Lab
+# Embedded Systems Lab
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![RTOS: FreeRTOS](https://img.shields.io/badge/RTOS-FreeRTOS-orange.svg)](https://www.freertos.org/)
@@ -8,9 +8,8 @@ A collection of systems-level projects spanning real-time operating systems
 and embedded robotics. Each project is self-contained and explores a
 different layer of the computing stack — from real-time task scheduling up
 through firmware running on physical hardware. Read together, the two
-projects trace the boundary this repo is named for: the point where
-software's abstractions — tasks, control loops — meet the hardware that
-actually executes them. See
+projects trace the boundary where software's abstractions — tasks, control
+loops — meet the hardware that actually executes them. See
 [How the Two Projects Relate](#how-the-two-projects-relate) for the full
 thread connecting them.
 
@@ -24,7 +23,7 @@ thread connecting them.
 ## Repository Structure
 
 ```
-computer-systems-lab/
+embedded-systems-lab/
 ├── README.md
 ├── rtos/
 │   └── freertos-task-scheduler/ # FreeRTOS POSIX simulation (C)
@@ -91,8 +90,8 @@ worked on the track, not just the polished end state.
 ## How the Two Projects Relate
 
 The two projects aren't grouped here by coincidence — each one sits at a
-different point along the boundary this repo is named for, the point where
-software's abstractions meet the hardware that actually executes them:
+different point along the boundary where software's abstractions meet the
+hardware that actually executes them:
 
 1. **`freertos-task-scheduler` is the abstraction layer.** An RTOS assumes an
    instruction set and a single processor below it, and adds the layer of
