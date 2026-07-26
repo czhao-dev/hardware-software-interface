@@ -1,30 +1,39 @@
-# Embedded Systems Lab
+# Hardware-Software Interface
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Verilog](https://img.shields.io/badge/HDL-Verilog-informational)](hardware/verilog-mini-cpu)
 [![RTOS: FreeRTOS](https://img.shields.io/badge/RTOS-FreeRTOS-orange.svg)](https://www.freertos.org/)
 [![Platform: Arduino/Teensy](https://img.shields.io/badge/platform-Arduino%2FTeensy-00979D?logo=arduino&logoColor=white)](robotics/natcar-autonomous-vehicle)
 
-A collection of systems-level projects spanning real-time operating systems
-and embedded robotics. Each project is self-contained and explores a
-different layer of the computing stack — from real-time task scheduling up
-through firmware running on physical hardware. Read together, the two
-projects trace the boundary where software's abstractions — tasks, control
-loops — meet the hardware that actually executes them. See
-[How the Two Projects Relate](#how-the-two-projects-relate) for the full
+A collection of systems-level projects spanning digital hardware design,
+real-time operating systems, and embedded robotics. Each project is
+self-contained and explores a different layer of the computing stack — from
+silicon-level HDL up through real-time firmware running on physical hardware.
+Read together, the three projects trace the boundary this repo is named for:
+the point where software's abstractions — instructions, tasks, control loops
+— meet the hardware that actually executes them. See
+[How the Three Projects Relate](#how-the-three-projects-relate) for the full
 thread connecting them.
 
 ## Projects
 
 | Project | Area | Language / Tools | Description |
 | --- | --- | --- | --- |
+| [hardware/verilog-mini-cpu](hardware/verilog-mini-cpu) | Digital Hardware | Verilog, Python, Icarus | An 8-bit pipelined CPU with a custom 16-opcode ISA, a 2-stage IF/EX-WB pipeline, a two-pass Python assembler, and a fully self-checking testbench suite. |
 | [rtos/freertos-task-scheduler](rtos/freertos-task-scheduler) | RTOS | C, FreeRTOS, POSIX | A POSIX-based FreeRTOS simulation of a smart embedded system demonstrating concurrent task scheduling, queue-based IPC, mutex-protected I/O, and runtime heap monitoring. |
 | [robotics/natcar-autonomous-vehicle](robotics/natcar-autonomous-vehicle) | Embedded Robotics | C/C++, Arduino/Teensy, Eagle | An autonomous race car for the IEEE NATCAR competition: custom PCB, 128-pixel line-scan camera sensing, PD steering control, and dual PWM motor drive. |
 
 ## Repository Structure
 
 ```
-embedded-systems-lab/
+hardware-software-interface/
 ├── README.md
+├── hardware/
+│   └── verilog-mini-cpu/        # 8-bit pipelined CPU (Verilog)
+│       ├── src/                 # RTL modules
+│       ├── tb/                  # testbenches
+│       ├── tools/               # Python assembler
+│       └── examples/            # assembly programs
 ├── rtos/
 │   └── freertos-task-scheduler/ # FreeRTOS POSIX simulation (C)
 │       ├── include/
@@ -42,6 +51,30 @@ Each project keeps its own README, build instructions, and license in its
 respective directory.
 
 ## Project Deep Dives
+
+### Verilog Mini CPU ([`hardware/verilog-mini-cpu`](hardware/verilog-mini-cpu))
+
+This is the one project in the set with no simulator standing in for the
+hardware — it's synthesizable RTL, and the pipeline hazard story is the most
+interesting part of it. The 2-stage IF/EX-WB design is *hazard-free by
+construction*, not by added forwarding or stalling logic: the register file
+and data memory are synchronous-write/asynchronous-read, and because only one
+instruction is ever resident in EX-WB at a time, instruction *i+1*'s register
+reads in cycle *k+1* are guaranteed to see instruction *i*'s writeback that
+committed at the clock edge ending cycle *k*. That structural guarantee is
+what lets the design skip an entire class of pipeline hazard logic that a
+deeper pipeline would require. Branch handling reuses the same trick for
+control hazards: a single `redirect` signal, asserted by EX-WB on a taken
+branch/jump/`RET`, simultaneously drives the PC mux *and* injects a NOP into
+the pipeline register's input in the same cycle — no separate flush flag, no
+extra state, a 1-cycle penalty by construction. The custom 16-opcode ISA
+(4-bit ALU ops, immediate/branch/jump/load-store/system instruction classes)
+is a compact, hand-designed ISA — small enough that its full encoding fits in
+one README table, which is the point. Every module (ALU, register file, data
+memory, full CPU) has its own self-checking testbench, the two-pass Python
+assembler has 30 unit tests, and `loop_sum.asm` (summing 1 through 10) is
+verified end-to-end against the actual simulated hardware, not just the
+ISA's intended semantics.
 
 ### FreeRTOS Smart Task Scheduler ([`rtos/freertos-task-scheduler`](rtos/freertos-task-scheduler))
 
@@ -87,26 +120,31 @@ simplifying down to the leaner, more reliable camera-only control loop that
 shipped — a real record of an engineering team converging on what actually
 worked on the track, not just the polished end state.
 
-## How the Two Projects Relate
+## How the Three Projects Relate
 
-The two projects aren't grouped here by coincidence — each one sits at a
-different point along the boundary where software's abstractions meet the
-hardware that actually executes them:
+The three projects aren't grouped here by coincidence — each one sits at a
+different point along the boundary this repo is named for, the point where
+software's abstractions meet the hardware that actually executes them:
 
-1. **`freertos-task-scheduler` is the abstraction layer.** An RTOS assumes an
-   instruction set and a single processor below it, and adds the layer of
-   abstraction concurrent software actually needs: tasks, queues, priorities,
-   and scheduling — coordinating several pieces of software sharing one
+1. **`verilog-mini-cpu` is the hardware side made explicit.** Gates, a
+   register file, and a pipeline register realize an instruction set directly
+   in synthesizable RTL — there is no layer of software standing between the
+   instruction encoding and the physical logic that executes it.
+2. **`freertos-task-scheduler` builds on top of that.** An RTOS assumes the
+   ISA-level guarantees below it hold, and adds the next layer of abstraction
+   software actually needs: concurrent tasks, queues, priorities, and
+   scheduling — coordinating several pieces of software sharing one
    processor, entirely in a POSIX simulation with no physical hardware in the
    loop.
-2. **`natcar-autonomous-vehicle` is where software reaches back out through
+3. **`natcar-autonomous-vehicle` is where software reaches back out through
    that boundary.** A PD control loop reading a real camera and writing real
    PWM signals is software touching physical hardware at the other end of the
    stack — voltages and timing, not architectural state.
 
-There's a second thread worth naming: `freertos-task-scheduler` is
-simulate-and-verify-on-a-dev-machine by design (a POSIX simulation of the RTOS
-with zero application warnings), while NATCAR is the project actually deployed
+There's a second thread worth naming: two of the three projects are
+simulate-and-verify-on-a-dev-machine by design (self-checking Verilog
+testbenches for every module, a POSIX simulation of the RTOS with zero
+application warnings), while NATCAR is the one project actually deployed
 against physical reality — and its firmware archive is the record of what
 changed once simulation gave way to a real track, real sensors, and real
 noise.
@@ -115,11 +153,12 @@ noise.
 
 | Layer | Concepts |
 | --- | --- |
+| Digital Logic / RTL | Verilog, pipelined datapath, hazard analysis, ALU design, synchronous vs. asynchronous read/write |
 | Systems Programming | C, memory layout, bit manipulation, signed/unsigned arithmetic |
 | Real-Time Systems | FreeRTOS task scheduling, queues, mutexes, heap management, POSIX threading |
 | Embedded Hardware | PCB design (Eagle), Teensy/Arduino, servo and motor PWM, analog sensor front ends |
-| Verification & Testing | Unit tests, integration tests, self-checking test suites |
-| Toolchain | GNU Make, custom test harnesses |
+| Verification & Testing | Unit tests, integration tests, self-checking testbenches, waveform capture (VCD/GTKWave) |
+| Toolchain | Python assembler, GNU Make, Icarus Verilog, custom test harnesses |
 
 ## Quick Start
 
@@ -131,6 +170,11 @@ full setup instructions. At a glance:
 cd rtos/freertos-task-scheduler
 make && ./freertos_sim
 
+# Verilog Mini CPU (requires Icarus Verilog and Python 3)
+cd hardware/verilog-mini-cpu
+make test        # run all Verilog + assembler tests
+make test-program  # assemble loop_sum.asm and simulate end-to-end
+
 # NATCAR Firmware (requires Arduino IDE with Teensyduino)
 # Open robotics/natcar-autonomous-vehicle/firmware/natcar_final/natcar_final.ino
 ```
@@ -141,6 +185,10 @@ make && ./freertos_sim
 - [FreeRTOS Kernel](https://github.com/FreeRTOS/FreeRTOS-Kernel) — source of the RTOS kernel and POSIX simulator port used in this project.
 - [FreeRTOS Reference Manual](https://www.freertos.org/Documentation/RTOS_book.html) — API reference for tasks, queues, mutexes, and timers.
 
+**Verilog Mini CPU**
+- [Icarus Verilog](https://steveicarus.github.io/iverilog/) — open-source Verilog simulator used for all testbenches.
+- [GTKWave](https://gtkwave.sourceforge.net/) — waveform viewer for VCD output from the integration testbenches.
+
 **IEEE NATCAR Autonomous Vehicle**
 - [TSL1401-DB Line-Scan Camera Datasheet](robotics/natcar-autonomous-vehicle/references/28317-TSL1401-DB-Manual.pdf) — timing diagrams and electrical specs for the 128-pixel optical sensor.
 - [IEEE NATCAR Competition](https://ieee.ucdavis.edu/natcar/) — competition rules and track specifications.
@@ -149,5 +197,5 @@ make && ./freertos_sim
 
 This index repo is licensed under the MIT License — see [LICENSE](LICENSE).
 Each subproject carries its own license in its own directory (the FreeRTOS
-task scheduler and NATCAR vehicle are each Apache License 2.0) — check the
-subproject's own `LICENSE` file before reusing its code.
+task scheduler, Verilog mini CPU, and NATCAR vehicle are each Apache License
+2.0) — check the subproject's own `LICENSE` file before reusing its code.
